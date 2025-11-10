@@ -1,0 +1,16 @@
+# General
+.git
+.gitignore
+.vs
+.vscode
+**/bin/
+**/obj/
+**/out/
+node_modules
+*.user
+*.suo
+*.swp
+*.log
+
+# Docker
+docker-compose.yml

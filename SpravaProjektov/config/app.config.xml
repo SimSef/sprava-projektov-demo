@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appConfig>
+  <storage>
+    <projectsPath>Data/XML/projects.xml</projectsPath>
+  </storage>
+
+  <auth>
+    <admin>
+      <username>admin</username>
+      <password>admin123</password>
+    </admin>
+  </auth>
+
+  <logging>
+    <level>Information</level>
+    <output>Console</output>
+  </logging>
+</appConfig>
