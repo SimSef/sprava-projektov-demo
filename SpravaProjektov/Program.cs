@@ -1,15 +1,9 @@
-using Microsoft.AspNetCore.Components.Authorization;
-using SpravaProjektov.Components;
-using SpravaProjektov.Components;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
+using SpravaProjektov.Presentation;
 using SpravaProjektov.Application.Config;
 using System.Text;
-using Microsoft.Extensions.Configuration;
 using SpravaProjektov.Application.Auth;
 using SpravaProjektov.Data.Xml;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,7 +14,6 @@ Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 builder.Configuration.AddXmlFile(Path.Combine("config", "app.config.xml"), optional: false, reloadOnChange: true);
 builder.Services.Configure<AppConfig>(builder.Configuration.GetSection("appConfig"));
 
-// Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -34,13 +27,15 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
     });
 
+builder.Services.AddAuthorization();
+
 // Access HttpContext in services
 builder.Services.AddHttpContextAccessor();
 
 // Register XML-based auth repository (issues cookie on sign-in)
 builder.Services.AddSingleton<IAuthRepository, XmlAuthRepository>();
 
-// Demo over HTTP: allow cookies over HTTP (no proxy TLS)
+// Demo over HTTP
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
@@ -50,28 +45,14 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    // no EF migrations in this demo
-}
-else
-{
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // HSTS disabled for demo; no reverse proxy/TLS here.
-}
+app.UseExceptionHandler("/Error", createScopeForErrors: true);
 
-// HTTPS redirection disabled (demo runs over HTTP).
-
-
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
-
-// No global cookie policy enforcing Secure=Always; demo uses HTTP.
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
-
-// No Identity endpoints; custom cookie auth handles login/logout.
 
 app.Run();

@@ -1,0 +1,69 @@
+@page "/login"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@inject SpravaProjektov.Application.Auth.IAuthRepository Auth
+@inject NavigationManager Navigation
+@inject ILogger<Login> Logger
+
+<PageTitle>Login</PageTitle>
+
+<h1>Prihlásenie</h1>
+
+<EditForm Model="Model" OnSubmit="HandleSubmit" FormName="LoginForm">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label class="form-label">Používateľské meno</label>
+        <InputText class="form-control" @bind-Value="Model!.Username" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Heslo</label>
+        <InputText class="form-control" type="password" @bind-Value="Model!.Password" />
+    </div>
+    <div class="form-check mb-3">
+        <InputCheckbox class="form-check-input" @bind-Value="Model!.RememberMe" />
+        <label class="form-check-label">Zapamätať prihlásenie</label>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="alert alert-danger" role="alert">@Error</div>
+    }
+
+    <button type="submit" class="btn btn-primary">Prihlásiť</button>
+</EditForm>
+
+@code {
+    [SupplyParameterFromForm]
+    private LoginModel? Model { get; set; }
+
+    private string? Error { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Model ??= new();
+    }
+
+    private async Task HandleSubmit(EditContext _)
+    {
+        Error = null;
+        var ok = await Auth.SignInAsync(Model!.Username ?? string.Empty, Model!.Password ?? string.Empty, Model!.RememberMe);
+        if (ok)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+        else
+        {
+            Error = "Neplatné prihlasovacie údaje.";
+            Logger.LogInformation("Login failed for user {User}", Model!.Username);
+        }
+    }
+
+    public class LoginModel
+    {
+        public string? Username { get; set; }
+        public string? Password { get; set; }
+        public bool RememberMe { get; set; }
+    }
+}
+
