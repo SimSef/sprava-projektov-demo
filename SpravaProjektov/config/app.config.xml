@@ -2,17 +2,6 @@
 <appConfig>
   <storage>
     <projectsPath>Data/XML/projects.xml</projectsPath>
+    <usersPath>Data/XML/users.xml</usersPath>
   </storage>
-
-  <auth>
-    <admin>
-      <username>admin</username>
-      <password>admin123</password>
-    </admin>
-  </auth>
-
-  <logging>
-    <level>Information</level>
-    <output>Console</output>
-  </logging>
 </appConfig>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<users>
+  <user>
+    <username>admin</username>
+    <password>admin123</password>
+    <displayName>Administrátor</displayName>
+    <roles>
+      <role>Admin</role>
+      <role>Projects.ReadWrite</role>
+    </roles>
+  </user>
+  <user>
+    <username>user</username>
+    <password>user123</password>
+    <displayName>Bežný používateľ</displayName>
+    <roles>
+      <role>User</role>
+      <role>Projects.Read</role>
+    </roles>
+  </user>
+</users>
+
