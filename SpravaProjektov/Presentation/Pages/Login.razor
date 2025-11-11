@@ -69,26 +69,35 @@
   private async Task HandleValidSubmit(EditContext _)
   {
     Error = null;
+    if (await TrySignInAsync())
+    {
+      Navigation.NavigateTo("/projects");
+    }
+  }
+
+  private async Task<bool> TrySignInAsync()
+  {
     var user = Model!.Username ?? string.Empty;
     Logger.LogDebug("Submitting login form for {User}", user);
-
-    bool ok;
     try
     {
-      ok = await Auth.SignInAsync(user, Model!.Password ?? string.Empty, false);
+      var result = await Auth.SignInAsync(user, Model!.Password!, false);
+      if (result.Succeeded)
+      {
+        Logger.LogInformation("Login success for {User}", user);
+        return true;
+      }
+
+      Error = result.Error;
+      Logger.LogWarning("Login failed for user {User}: {Reason}", user, result.Error);
+      return false;
     }
     catch (Exception ex)
     {
       Error = "Chyba pri prihlasovaní.";
       Logger.LogError(ex, "Exception during sign-in for {User}", user);
-      return;
+      return false;
     }
-
-    Logger.LogInformation("Login success for {User}", user);
-    var target = string.IsNullOrWhiteSpace(ReturnUrl) ? "/projects" : ReturnUrl;
-    // Let NavigationException bubble during static SSR so the framework performs the redirect
-    Navigation.NavigateTo(target, forceLoad: true);
-    return;
   }
 
   private void HandleInvalidSubmit(EditContext editContext)

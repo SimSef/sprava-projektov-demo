@@ -1,6 +1,6 @@
 # Správa projektov – Testovací príklad
 
-- Čas realizácie: ~4 hodiny
+- Čas realizácie: ~5 hodiny
 
 ## Spustenie
 

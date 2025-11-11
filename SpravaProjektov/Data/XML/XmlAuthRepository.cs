@@ -14,21 +14,21 @@ public sealed class XmlAuthRepository(IOptions<AppConfig> options, ILogger<XmlAu
     private readonly ILogger<XmlAuthRepository> _logger = logger;
     private readonly IHttpContextAccessor _http = http;
 
-    public async Task<bool> SignInAsync(string username, string password, bool persistent = false, CancellationToken cancellationToken = default)
+    public async Task<SignInResult> SignInAsync(string username, string password, bool persistent = false, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Sign-in attempt for {Username}", username);
         var user = FindUser(username);
         if (user is null)
         {
             _logger.LogWarning("User not found: {Username}", username);
-            return false;
+            return SignInResult.Fail("Používateľ neexistuje.");
         }
 
         var ok = string.Equals(user.Password, password, StringComparison.Ordinal);
         if (!ok)
         {
             _logger.LogWarning("Invalid credentials for {Username}", username);
-            return false;
+            return SignInResult.Fail("Nesprávne heslo.");
         }
 
         _logger.LogDebug("Creating claims for {Username} with {RoleCount} roles", user.Username, user.Roles.Count);
@@ -53,16 +53,16 @@ public sealed class XmlAuthRepository(IOptions<AppConfig> options, ILogger<XmlAu
         if (httpContext is null)
         {
             _logger.LogWarning("No HttpContext available to issue auth cookie.");
-            return false;
+            return SignInResult.Fail("Interná chyba.");
         }
 
         await httpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
             new AuthenticationProperties { IsPersistent = persistent });
         _logger.LogInformation("Sign-in succeeded for {Username}", username);
-        return true;
+        return SignInResult.Success();
     }
 
-    
+
 
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {

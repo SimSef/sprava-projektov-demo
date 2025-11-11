@@ -4,6 +4,7 @@ using SpravaProjektov.Application.Auth;
 using SpravaProjektov.Application.Projects;
 using SpravaProjektov.Data.Xml;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,7 +29,11 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.SlidingExpiration = true;
+        options.Events.OnRedirectToAccessDenied = ctx =>
+        {
+            ctx.Response.Redirect("/");
+            return Task.CompletedTask;
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -60,5 +65,8 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<SpravaProjektov.Presentation.App>()
     .AddInteractiveServerRenderMode();
+
+// Fallback for unknown server routes → Index (redirects to /login)
+app.MapFallback(() => Results.Redirect("/"));
 
 app.Run();
