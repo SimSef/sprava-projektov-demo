@@ -16,12 +16,22 @@ public sealed class XmlAuthRepository(IOptions<AppConfig> options, ILogger<XmlAu
 
     public async Task<bool> SignInAsync(string username, string password, bool persistent = false, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Sign-in attempt for {Username}", username);
         var user = FindUser(username);
-        if (user is null) return false;
+        if (user is null)
+        {
+            _logger.LogWarning("User not found: {Username}", username);
+            return false;
+        }
 
         var ok = string.Equals(user.Password, password, StringComparison.Ordinal);
-        if (!ok) return false;
+        if (!ok)
+        {
+            _logger.LogWarning("Invalid credentials for {Username}", username);
+            return false;
+        }
 
+        _logger.LogDebug("Creating claims for {Username} with {RoleCount} roles", user.Username, user.Roles.Count);
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Username),
@@ -31,7 +41,7 @@ public sealed class XmlAuthRepository(IOptions<AppConfig> options, ILogger<XmlAu
         {
             claims.Add(new("display_name", user.DisplayName!));
         }
-        foreach (var role in user.Roles ?? [])
+        foreach (var role in user.Roles)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));
         }
@@ -48,25 +58,20 @@ public sealed class XmlAuthRepository(IOptions<AppConfig> options, ILogger<XmlAu
 
         await httpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
             new AuthenticationProperties { IsPersistent = persistent });
+        _logger.LogInformation("Sign-in succeeded for {Username}", username);
         return true;
     }
 
-    public Task<UserAccount?> GetUserAsync(string username, CancellationToken cancellationToken = default)
-    {
-        var user = FindUser(username);
-        if (user is null) return Task.FromResult<UserAccount?>(null);
-
-        var roles = user.Roles?.ToArray() ?? [];
-        var acc = new UserAccount(user.Username, user.DisplayName, roles);
-        return Task.FromResult<UserAccount?>(acc);
-    }
+    
 
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Signing out current user");
         var httpContext = _http.HttpContext;
         if (httpContext is not null)
         {
             await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            _logger.LogInformation("Signed out");
         }
     }
 
@@ -74,6 +79,7 @@ public sealed class XmlAuthRepository(IOptions<AppConfig> options, ILogger<XmlAu
     {
         try
         {
+            _logger.LogDebug("Searching for user {Username}", username);
             var users = LoadUsers();
             return users.Users.FirstOrDefault(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase));
         }
@@ -86,17 +92,29 @@ public sealed class XmlAuthRepository(IOptions<AppConfig> options, ILogger<XmlAu
 
     private UsersXml LoadUsers()
     {
-        var relPath = _options.Value.Storage.UsersPath;
+        var storage = _options.Value?.Storage;
+        if (storage is null || string.IsNullOrWhiteSpace(storage.UsersPath))
+        {
+            _logger.LogError("App configuration missing Storage.UsersPath. Check config/app.config.xml binding.");
+            throw new InvalidOperationException("Storage.UsersPath is not configured.");
+        }
+        var relPath = storage.UsersPath;
         var fullPath = Path.IsPathRooted(relPath) ? relPath : Path.Combine(AppContext.BaseDirectory, relPath);
         if (!File.Exists(fullPath))
         {
+            _logger.LogError("Users XML not found at {Path}", fullPath);
             throw new FileNotFoundException($"Users XML not found at '{fullPath}'.");
         }
 
         var ser = new XmlSerializer(typeof(UsersXml));
         using var fs = File.OpenRead(fullPath);
-        return ser.Deserialize(fs) is UsersXml data
-            ? data
-            : throw new InvalidOperationException("Failed to deserialize users XML.");
+        var data = ser.Deserialize(fs) as UsersXml;
+        if (data is null)
+        {
+            _logger.LogError("Failed to deserialize users XML at {Path}", fullPath);
+            throw new InvalidOperationException("Failed to deserialize users XML.");
+        }
+        _logger.LogDebug("Loaded {Count} users from {Path}", data.Users?.Count ?? 0, fullPath);
+        return data;
     }
 }
