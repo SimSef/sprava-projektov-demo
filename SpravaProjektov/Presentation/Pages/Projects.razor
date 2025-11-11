@@ -1,0 +1,244 @@
+@page "/projects"
+@using Microsoft.AspNetCore.Authorization
+@using System.ComponentModel.DataAnnotations
+@using SpravaProjektov.Application.Projects
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IProjectRepository ProjectsRepo
+@inject ILogger<Projects> Logger
+
+<PageTitle>Projekty</PageTitle>
+
+<h1>Projekty</h1>
+
+@if (!string.IsNullOrEmpty(Error))
+{
+  <div class="alert alert-danger" role="alert">@Error</div>
+}
+
+@if (Loading)
+{
+  <p>Načítavam…</p>
+}
+else if (Items.Count == 0)
+{
+  <p>Žiadne projekty.</p>
+}
+else
+{
+  <div class="mb-3">
+    <AuthorizeView Roles="Admin" Context="auth">
+      <button class="btn btn-success btn-sm" @onclick="NewProject">Nový projekt</button>
+    </AuthorizeView>
+  </div>
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Kód</th>
+        <th>Názov</th>
+        <th>Skratka</th>
+        <th>Zákazník</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var p in Items)
+      {
+        <tr>
+          <td>@p.Id</td>
+          <td>@p.Name</td>
+          <td>@p.Abbreviation</td>
+          <td>@p.Customer</td>
+          <td class="text-end">
+            <AuthorizeView Roles="Admin" Context="auth">
+              <button class="btn btn-primary btn-sm me-1" @onclick="() => EditProject(p.Id)">Upraviť</button>
+              <button class="btn btn-danger btn-sm" @onclick="() => DeleteProject(p.Id)">Zmazať</button>
+            </AuthorizeView>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+@code {
+  private List<Project> Items = [];
+  private bool Loading = true;
+  private string? Error;
+
+  // Modal state
+  private bool IsModalOpen;
+  private bool IsEdit;
+  private string? ModalError;
+  private ProjectForm Model = new();
+
+  protected override async Task OnInitializedAsync()
+  {
+    await Reload();
+  }
+
+  private async Task Reload()
+  {
+    try
+    {
+      Loading = true;
+      Error = null;
+      Items = (await ProjectsRepo.GetAllAsync()).ToList();
+    }
+    catch (Exception ex)
+    {
+      Logger.LogError(ex, "Chyba pri načítaní projektov");
+      Error = "Nepodarilo sa načítať projekty.";
+    }
+    finally
+    {
+      Loading = false;
+      StateHasChanged();
+    }
+  }
+
+  private Task NewProject()
+  {
+    IsEdit = false;
+    ModalError = null;
+    Model = new ProjectForm();
+    IsModalOpen = true;
+    return Task.CompletedTask;
+  }
+
+  private Task EditProject(string id)
+  {
+    var p = Items.FirstOrDefault(x => string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+    if (p is null)
+    {
+      Error = $"Projekt '{id}' neexistuje.";
+      return Task.CompletedTask;
+    }
+    IsEdit = true;
+    ModalError = null;
+    Model = new ProjectForm
+    {
+      Id = p.Id,
+      Name = p.Name,
+      Abbreviation = p.Abbreviation,
+      Customer = p.Customer
+    };
+    IsModalOpen = true;
+    return Task.CompletedTask;
+  }
+
+  private async Task SaveProject()
+  {
+    ModalError = null;
+    try
+    {
+      if (IsEdit)
+      {
+        await ProjectsRepo.UpdateAsync(new Project(Model.Id!, Model.Name!, Model.Abbreviation ?? string.Empty, Model.Customer ??
+        string.Empty));
+      }
+      else
+      {
+        await ProjectsRepo.AddAsync(new Project(Model.Id!, Model.Name!, Model.Abbreviation ?? string.Empty, Model.Customer ??
+        string.Empty));
+      }
+      IsModalOpen = false;
+      await Reload();
+    }
+    catch (Exception ex)
+    {
+      Logger.LogError(ex, "Chyba pri ukladaní projektu");
+      ModalError = ex.Message;
+    }
+  }
+
+  private void CloseModal()
+  {
+    IsModalOpen = false;
+    ModalError = null;
+  }
+
+  private async Task DeleteProject(string id)
+  {
+    try
+    {
+      await ProjectsRepo.DeleteAsync(id);
+      await Reload();
+    }
+    catch (Exception ex)
+    {
+      Logger.LogError(ex, "Chyba pri mazaní projektu {Id}", id);
+      Error = $"Nepodarilo sa zmazať projekt '{id}'.";
+    }
+  }
+
+  public class ProjectForm
+  {
+    [Required, StringLength(40)]
+    public string? Id { get; set; }
+
+    [Required, StringLength(200)]
+    public string? Name { get; set; }
+
+    [StringLength(50)]
+    public string? Abbreviation { get; set; }
+
+    [StringLength(200)]
+    public string? Customer { get; set; }
+  }
+}
+
+@* Modal markup *@
+@if (IsModalOpen)
+{
+  <div class="modal fade show d-block" style="background-color: rgba(0,0,0,.5)" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">@(IsEdit ? "Upraviť projekt" : "Nový projekt")</h5>
+          <button type="button" class="btn-close" aria-label="Close" @onclick="CloseModal"></button>
+        </div>
+        <div class="modal-body">
+          @if (!string.IsNullOrEmpty(ModalError))
+          {
+            <div class="alert alert-danger" role="alert">@ModalError</div>
+          }
+          <AuthorizeView Roles="Admin" Context="auth">
+            <EditForm Model="Model" OnValidSubmit="SaveProject" FormName="ProjectForm">
+              <DataAnnotationsValidator />
+              <ValidationSummary />
+
+              <div class="mb-3">
+                <label class="form-label">Kód</label>
+                @if (IsEdit)
+                {
+                  <InputText class="form-control" @bind-Value="Model.Id" disabled />
+                }
+                else
+                {
+                  <InputText class="form-control" @bind-Value="Model.Id" />
+                }
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Názov</label>
+                <InputText class="form-control" @bind-Value="Model.Name" />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Skratka</label>
+                <InputText class="form-control" @bind-Value="Model.Abbreviation" />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Zákazník</label>
+                <InputText class="form-control" @bind-Value="Model.Customer" />
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModal">Zrušiť</button>
+                <button type="submit" class="btn btn-primary">Uložiť</button>
+              </div>
+            </EditForm>
+          </AuthorizeView>
+        </div>
+      </div>
+    </div>
+  </div>
+}

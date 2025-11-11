@@ -1,0 +1,21 @@
+@inject SpravaProjektov.Application.Auth.IAuthRepository Auth
+@inject NavigationManager Navigation
+
+<form method="post" @onsubmit="OnSubmit" @formname="logout-form">
+  <AntiforgeryToken />
+  <button type="submit" class="btn btn-outline-light btn-sm w-100">
+    Odhlásiť sa
+    <span class="ms-1" aria-hidden="true">↪</span>
+    <span class="visually-hidden">Logout</span>
+  </button>
+  
+</form>
+
+@code {
+  private async Task OnSubmit()
+  {
+    await Auth.SignOutAsync();
+    // Let NavigationException bubble during static SSR so the framework performs the redirect
+    Navigation.NavigateTo("/login", forceLoad: true);
+  }
+}

@@ -2,7 +2,6 @@
 @inject SpravaProjektov.Application.Auth.IAuthRepository Auth
 @inject NavigationManager Navigation
 @inject ILogger<Login> Logger
-@using Microsoft.AspNetCore.Http
 
 <PageTitle>Login</PageTitle>
 
@@ -19,6 +18,10 @@
       Demo prihlasovacie údaje:<br />
       Admin: <code>admin</code> / <code>admin123</code><br />
       Používateľ: <code>user</code> / <code>user123</code>
+      <hr />
+      Práva po prihlásení:<br />
+      • Administrátor: môže vytvárať, upravovať a mazať projekty.<br />
+      • Používateľ: môže len prehliadať zoznam projektov.
     </div>
 
     <EditForm Model="Model" OnValidSubmit="HandleValidSubmit" OnInvalidSubmit="HandleInvalidSubmit"
@@ -36,10 +39,7 @@
         <InputText class="form-control" type="password" @bind-Value="Model!.Password" />
         <ValidationMessage For="() => Model!.Password" />
       </div>
-      <div class="form-check mb-3">
-        <InputCheckbox class="form-check-input" @bind-Value="Model!.RememberMe" />
-        <label class="form-check-label">Zapamätať prihlásenie</label>
-      </div>
+
 
       @if (!string.IsNullOrEmpty(Error))
       {
@@ -58,9 +58,6 @@
   [SupplyParameterFromQuery]
   private string? ReturnUrl { get; set; }
 
-  [CascadingParameter]
-  private HttpContext? HttpContext { get; set; }
-
   private string? Error { get; set; }
 
   protected override void OnInitialized()
@@ -73,13 +70,12 @@
   {
     Error = null;
     var user = Model!.Username ?? string.Empty;
-    var remember = Model!.RememberMe;
-    Logger.LogDebug("Submitting login form for {User}, rememberMe={Remember}", user, remember);
+    Logger.LogDebug("Submitting login form for {User}", user);
 
     bool ok;
     try
     {
-      ok = await Auth.SignInAsync(user, Model!.Password ?? string.Empty, remember);
+      ok = await Auth.SignInAsync(user, Model!.Password ?? string.Empty, false);
     }
     catch (Exception ex)
     {
@@ -88,30 +84,15 @@
       return;
     }
 
-    if (ok)
-    {
-      Logger.LogInformation("Login success for {User}", user);
-      var target = string.IsNullOrWhiteSpace(ReturnUrl) ? "/projects" : ReturnUrl;
-      if (HttpContext is not null)
-      {
-        // Static SSR: server-side redirect (no NavigationException in .NET 9)
-        HttpContext.Response.Redirect(target);
-        return;
-      }
-      // Interactive: client-side navigation (may throw NavigationException during SSR, let it bubble)
-      Navigation.NavigateTo(target, forceLoad: true);
-      return;
-    }
-    else
-    {
-      Error = "Neplatné prihlasovacie údaje.";
-      Logger.LogWarning("Login failed for user {User}", user);
-    }
+    Logger.LogInformation("Login success for {User}", user);
+    var target = string.IsNullOrWhiteSpace(ReturnUrl) ? "/projects" : ReturnUrl;
+    // Let NavigationException bubble during static SSR so the framework performs the redirect
+    Navigation.NavigateTo(target, forceLoad: true);
+    return;
   }
 
   private void HandleInvalidSubmit(EditContext editContext)
   {
-    // Aggregate first error to show a friendly message; details are in the summary.
     Error = "Vyplňte používateľské meno a heslo.";
     Logger.LogWarning("Login form invalid: {Messages}", string.Join("; ", editContext.GetValidationMessages()));
   }
@@ -122,6 +103,5 @@
     public string? Username { get; set; }
     [Required(ErrorMessage = "Heslo je povinné.")]
     public string? Password { get; set; }
-    public bool RememberMe { get; set; }
   }
 }

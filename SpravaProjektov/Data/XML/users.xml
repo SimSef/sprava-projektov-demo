@@ -6,7 +6,6 @@
     <displayName>Administrátor</displayName>
     <roles>
       <role>Admin</role>
-      <role>Projects.ReadWrite</role>
     </roles>
   </user>
   <user>
@@ -15,8 +14,6 @@
     <displayName>Bežný používateľ</displayName>
     <roles>
       <role>User</role>
-      <role>Projects.Read</role>
     </roles>
   </user>
 </users>
-
