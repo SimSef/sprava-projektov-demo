@@ -7,6 +7,4 @@ public interface IAuthRepository
 {
     Task<bool> SignInAsync(string username, string password, bool persistent = false, CancellationToken cancellationToken = default);
     Task SignOutAsync(CancellationToken cancellationToken = default);
-    Task<UserAccount?> GetUserAsync(string username, CancellationToken cancellationToken = default);
 }
-
